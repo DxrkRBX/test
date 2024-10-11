@@ -1,0 +1,3606 @@
+local TweenService = game:GetService("TweenService")
+local NotificationLibrary = {}
+local notifications = {}
+local notificationHeight = 85
+local notificationWidth = 330
+local notificationPadding = 10
+local notificationTransparency = 0.3
+local notificationImage = true
+local notificationImageUiCorner = 12
+local closeButtonSize = UDim2.new(0, 20, 0, 20)
+local closeButtonOffset = UDim2.new(1, -24, 0, 0.5)
+local notificationUiStroke = true
+local notificationUiStrokeTransparency = 0.5
+local notificationUiStrokeThickness = 2
+local notificationAppearance = "left"
+local showCountdown = false
+local notificationGuiType = "CG"
+
+local screenGui
+if notificationGuiType == "SG" then
+    screenGui = Instance.new("ScreenGui")
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+elseif notificationGuiType == "CG" then
+    screenGui = Instance.new("ScreenGui")
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = game:GetService("CoreGui")
+end
+
+local notificationSound = Instance.new("Sound")
+notificationSound.SoundId = "rbxassetid://7383525713"
+notificationSound.Volume = 2
+notificationSound.Parent = screenGui
+
+local closeButtonSound = Instance.new("Sound")
+closeButtonSound.SoundId = "rbxassetid://17208361335"
+closeButtonSound.Volume = 0
+closeButtonSound.Parent = screenGui
+
+local function updateNotificationPositions(callback)
+    local moveDuration = 0.3
+    for i, notificationFrame in ipairs(notifications) do
+        local targetPosition =
+            UDim2.new(
+            notificationAppearance == "left" and 0 or 1,
+            notificationAppearance == "left" and 10 or -notificationWidth - 10,
+            1,
+            -(i * (notificationHeight + notificationPadding))
+        )
+
+        local moveTween =
+            TweenService:Create(
+            notificationFrame,
+            TweenInfo.new(moveDuration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {
+                Position = targetPosition
+            }
+        )
+        moveTween:Play()
+
+        if i == #notifications and callback then
+            moveTween.Completed:Connect(callback)
+        end
+    end
+end
+
+function NotificationLibrary:CreateNotification(title, description, duration, image)
+    duration = duration or 3
+    local remainingTime = duration
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, notificationWidth, 0, notificationHeight)
+
+    if notificationAppearance == "left" then
+        frame.Position = UDim2.new(0, -notificationWidth - 10, 1, 0)
+    elseif notificationAppearance == "right" then
+        frame.Position = UDim2.new(1, notificationWidth + 10, 1, 0)
+    end
+
+    frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    frame.BackgroundTransparency = notificationTransparency
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    if notificationUiStroke then
+        local uiStroke = Instance.new("UIStroke")
+        uiStroke.Thickness = notificationUiStrokeThickness
+        uiStroke.Transparency = notificationUiStrokeTransparency
+        uiStroke.Color = Color3.fromRGB(255, 255, 255)
+        uiStroke.Parent = frame
+    end
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 12)
+    uiCorner.Parent = frame
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size =
+        notificationImage and image and UDim2.new(1, -notificationHeight - 5, 1, 0) or UDim2.new(1, -10, 1, 0)
+    contentFrame.Position =
+        notificationImage and image and UDim2.new(0, notificationHeight + 2, 0, 0) or UDim2.new(0, 10, 0, 0)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = frame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 20)
+    titleLabel.Position = UDim2.new(0, 0, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextScaled = true
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Parent = contentFrame
+
+    local divider = Instance.new("Frame")
+    divider.Size =
+        notificationImage and image and UDim2.new(1.41, -(notificationHeight + 10), 0, 1) or UDim2.new(1, 0, 0, 1)
+    divider.Position = UDim2.new(0, 0, 0, 20)
+    divider.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    divider.BackgroundTransparency = 0.3
+    divider.BorderSizePixel = 0
+    divider.Parent = contentFrame
+
+    local descriptionLabel = Instance.new("TextLabel")
+    descriptionLabel.Size = UDim2.new(1, 0, 1, -21)
+    descriptionLabel.Position = UDim2.new(0, 0, 0, 21)
+    descriptionLabel.BackgroundTransparency = 1
+    descriptionLabel.Text = description
+    descriptionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    descriptionLabel.TextScaled = true
+    descriptionLabel.TextWrapped = true
+    descriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descriptionLabel.TextYAlignment = Enum.TextYAlignment.Top
+    descriptionLabel.Font = Enum.Font.Gotham
+    descriptionLabel.ClipsDescendants = true
+    descriptionLabel.Parent = contentFrame
+
+    if notificationImage and image then
+        local imageLabel = Instance.new("ImageLabel")
+        imageLabel.Size = UDim2.new(0, notificationHeight - 5, 0, notificationHeight - 5)
+        imageLabel.Position = UDim2.new(0, 3, 0.5, -(notificationHeight - 5) / 2)
+        imageLabel.BackgroundTransparency = 1
+        imageLabel.Image = image
+        imageLabel.ScaleType = Enum.ScaleType.Fit
+        imageLabel.Parent = frame
+
+        if notificationImageUiCorner > 0 then
+            local imageUiCorner = Instance.new("UICorner")
+            imageUiCorner.CornerRadius = UDim.new(0, notificationImageUiCorner)
+            imageUiCorner.Parent = imageLabel
+        end
+    end
+
+    local closeButton = Instance.new("ImageButton")
+    closeButton.Size = closeButtonSize
+    closeButton.Position = closeButtonOffset
+    closeButton.BackgroundTransparency = 1
+    closeButton.Image = "rbxassetid://108386127004478"
+    closeButton.Parent = frame
+
+    local function closeNotification()
+        closeButtonSound:Play()
+        local slideOutTween
+        if notificationAppearance == "left" then
+            slideOutTween =
+                TweenService:Create(
+                frame,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                {Position = UDim2.new(0, -notificationWidth - 10, 1, frame.Position.Y.Offset)}
+            )
+        elseif notificationAppearance == "right" then
+            slideOutTween =
+                TweenService:Create(
+                frame,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                {Position = UDim2.new(1, notificationWidth + 10, 1, frame.Position.Y.Offset)}
+            )
+        end
+
+        slideOutTween:Play()
+
+        slideOutTween.Completed:Connect(
+            function()
+                for i, v in ipairs(notifications) do
+                    if v == frame then
+                        table.remove(notifications, i)
+                        break
+                    end
+                end
+                frame:Destroy()
+                updateNotificationPositions()
+            end
+        )
+    end
+
+    closeButton.MouseButton1Click:Connect(closeNotification)
+    table.insert(notifications, 1, frame)
+
+    notificationSound:Play()
+
+    updateNotificationPositions(
+        function()
+            local slideInTween
+            local targetPosition =
+                UDim2.new(
+                notificationAppearance == "left" and 0 or 1,
+                notificationAppearance == "left" and 10 or -notificationWidth - 10,
+                1,
+                -(1 * (notificationHeight + notificationPadding))
+            )
+            slideInTween =
+                TweenService:Create(
+                frame,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                {Position = targetPosition}
+            )
+
+            slideInTween:Play()
+
+            slideInTween.Completed:Connect(
+                function()
+                    delay(duration, closeNotification)
+                end
+            )
+        end
+    )
+end
+
+local function StopAnim(plr)
+    local success, errorMsg =
+        pcall(
+        function()
+            if not plr.Character or not plr.Character:FindFirstChildOfClass("Humanoid") then
+                return
+            end
+
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local animate = plr.Character:FindFirstChild("Animate")
+            if animate then
+                animate.Disabled = true
+            end
+
+            for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end
+    )
+
+    if not success then
+        warn("Failed to stop animation: " .. errorMsg)
+    end
+end
+
+local function PlayAnim(plr, id, time, speed)
+    local success, errorMsg =
+        pcall(
+        function()
+            if not plr.Character or not plr.Character:FindFirstChildOfClass("Humanoid") then
+                return
+            end
+
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+
+            StopAnim(plr)
+
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. id
+            local animTrack = hum:LoadAnimation(anim)
+            animTrack:Play()
+            animTrack.TimePosition = time
+            animTrack:AdjustSpeed(speed)
+
+            animTrack.Stopped:Connect(
+                function()
+                    StopAnim(plr)
+                    local animate = plr.Character:FindFirstChild("Animate")
+                    if animate then
+                        animate.Disabled = false
+                    end
+                end
+            )
+        end
+    )
+
+    if not success then
+        warn("fail to change animation: " .. errorMsg)
+    end
+end
+
+NotificationLibrary:CreateNotification("Selenix Anim Changer", "Loading...", 3, "rbxassetid://118761504842253")
+
+local Selenix = {
+    SchemeColor = Color3.fromRGB(65, 65, 65),
+    Background = Color3.fromRGB(30, 30, 30),
+    Header = Color3.fromRGB(20, 20, 20),
+    TextColor = Color3.fromRGB(300, 300, 300),
+    ElementColor = Color3.fromRGB(40, 40, 40)
+}
+
+local Library = loadstring(game:HttpGet("https://pastebinp.com/raw/Q69rcHsK"))()
+local Window = Library.CreateLib("Selenix Animation Changer | V1.5", Selenix)
+
+local Tab = Window:NewTab("Home")
+local Section = Tab:NewSection("By WaveStorag")
+Section:NewLabel("Also credits to all owners of the script")
+
+Section:NewButton(
+    "Copy Kavo UI Library link",
+    "ButtonInfo",
+    function()
+        setclipboard("https://xheptcofficial.gitbook.io/kavo-library")
+    end
+)
+
+Section:NewButton(
+    "Copy my YouTube channel link",
+    "ButtonInfo",
+    function()
+        setclipboard("https://youtube.com/@wavestorag?si=hbFsmuzi-yEgnzgp")
+    end
+)
+
+local Tab = Window:NewTab("Animation")
+local function SetupWalmartAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://18747070484"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://18747074203"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://18747069148"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://18747067405"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://18747063918"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://18747062535"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://18747060903"
+        Animate.swim.Swim.AnimationId = "rbxassetid://18747073181"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://18747071682"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAdidasAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://18537384940"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://18537392113"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://18537380791"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://18537376492"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://18537371272"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://18537367238"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://18537363391"
+        Animate.swim.Swim.AnimationId = "rbxassetid://18537389531"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://18537387180"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBoldAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://16738337225"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://16738340646"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://16738336650"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://16738333868"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://16738334710"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://16738333171"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://16738332169"
+        Animate.swim.Swim.AnimationId = "rbxassetid://16738339158"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://16738339817"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNoneAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://0"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://0"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://0"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://0"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://0"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://0"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://0"
+        Animate.swim.Swim.AnimationId = "rbxassetid://0"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://0"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDefaultAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://913376220"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://913402848"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://507765000"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://507766388"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://507766666"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://507767968"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://507765644"
+        Animate.swim.Swim.AnimationId = "rbxassetid://913384386"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://913389285"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRthroAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://2510198475"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://2510202577"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://2510197830"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://2510197257"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://2510196951"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://2510195892"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://2510192778"
+        Animate.swim.Swim.AnimationId = "rbxassetid://2510199791"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://2510201162"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRealisticAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://11600211410"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://11600249883"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://11600210487"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://17172918855"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://17173014241"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://11600206437"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://11600205519"
+        Animate.swim.Swim.AnimationId = "rbxassetid://11600212676"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://11600213505"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAstronautAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://891636393"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://910025107"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://891627522"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://891621366"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://891633237"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://891617961"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://891609353"
+        Animate.swim.Swim.AnimationId = "rbxassetid://891639666"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://891663592"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblyAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://910025107"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://910034870"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://910016857"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://910004836"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://910009958"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://910001910"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://909997997"
+        Animate.swim.Swim.AnimationId = "rbxassetid://910028158"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://910030921"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonyAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://742638842"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://742640026"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://742637942"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://742637544"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://742638445"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://742637151"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://742636889"
+        Animate.swim.Swim.AnimationId = "rbxassetid://742639220"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://742639812"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://845386501"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://845403856"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://845398858"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://845397899"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://845400520"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://845396048"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://845392038"
+        Animate.swim.Swim.AnimationId = "rbxassetid://845401742"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://845403127"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://657564596"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://657552124"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://658409194"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://657595757"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://657568135"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://657600338"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://658360781"
+        Animate.swim.Swim.AnimationId = "rbxassetid://657560551"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://657557095"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616010382"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616013216"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616008936"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616006778"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616008087"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616005863"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616003713"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616011509"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616012453"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupGhostAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616013216"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616013216"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616008936"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616006778"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616008087"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616005863"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616003713"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616011509"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616012453"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupMageAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://707861613"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://707897309"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://707853694"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://707742142"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://707855907"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://707829716"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://707826056"
+        Animate.swim.Swim.AnimationId = "rbxassetid://707876443"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://707894699"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNinjaAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://656118852"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://656121766"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://656117878"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://656117400"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://656118341"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://656115606"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://656114359"
+        Animate.swim.Swim.AnimationId = "rbxassetid://656119721"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://656121397"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupPirateAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://750783738"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://750785693"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://750782230"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://750781874"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://750782770"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://750780242"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://750779899"
+        Animate.swim.Swim.AnimationId = "rbxassetid://750784579"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://750785176"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRobotAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616091570"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616095330"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616090535"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616088211"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616089559"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616087089"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616086039"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616092998"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616094091"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupStylishAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616140816"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616146177"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616139451"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616136790"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616138447"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616134815"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616133594"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616143378"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616144772"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupSuperheroAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616117076"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616122287"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616115533"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616111295"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616113536"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616108001"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616104706"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616119360"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616120861"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupToyAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://782842708"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://782843345"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://782847020"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://782841498"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://782845736"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://782846423"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://782843869"
+        Animate.swim.Swim.AnimationId = "rbxassetid://782844582"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://782845186"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupVampireAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1083462077"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1083473930"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1083455352"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1083445855"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1083450166"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1083443587"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1083439238"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1083464683"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1083467779"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupWerewolfAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1083216690"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1083178339"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1083218792"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1083195517"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1083214717"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1083189019"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1083182000"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1083222527"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1083225406"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupZombieAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616163682"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616168032"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616161997"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616158929"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616160636"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616157476"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616156119"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616165109"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616166655"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupOldSchoolAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://10921240218"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://10921244891"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://10921242013"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://10921230744"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://10921232093"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://10921241244"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://10921229866"
+        Animate.swim.Swim.AnimationId = "rbxassetid://10921243048"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://10921244018"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupConfidentAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1070001516"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1070017263"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1069984524"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1069977950"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1069987858"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1069973677"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1069946257"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1070009914"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1070012133"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupPopstarAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1212980348"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1212980338"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1212954642"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1212900985"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1212900985"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1212900995"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1213044939"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1212852603"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1212998578"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupPatrolAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1150967949"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1151231493"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1150944216"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1149612882"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1150842221"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1148863382"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1148811837"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1151204998"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1151221899"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupPrincessAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://941015281"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://941028902"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://941008832"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://941003647"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://941013098"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://941000007"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://940996062"
+        Animate.swim.Swim.AnimationId = "rbxassetid://941018893"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://941025398"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupSneakyAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1132494274"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1132510133"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1132489853"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1132473842"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1132477671"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1132469004"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1132461372"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1132500520"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1132506407"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCowboyAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://1014401683"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://1014421541"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://1014394726"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://1014390418"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://1014398616"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://1014384571"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://1014380606"
+        Animate.swim.Swim.AnimationId = "rbxassetid://1014406523"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://1014411816"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupStylishFemaleAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://4708192705"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://4708193840"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://4708188025"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://4708191566"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://4708192150"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://4708186162"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://4708184253"
+        Animate.swim.Swim.AnimationId = "rbxassetid://4708189360"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://4708190607"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDroolingZombieAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://3489173414"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://3489174223"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616161997"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://3489171152"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://3489171152"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616157476"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616156119"
+        Animate.swim.Swim.AnimationId = "rbxassetid://616165109"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616166655"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupR15Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://4211220381"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://4211223236"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://4211219390"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://4211217646"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://4211218409"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://4211216152"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://4211214992"
+        Animate.swim.Swim.AnimationId = "rbxassetid://4211221314"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://4374694239"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupOldR15Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://434416649"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://434417169"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://540798782"
+        Animate.run.RunAnim.AnimationId = "rbxassetid://507767714"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://507765000"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://507765644"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://507767968"
+        Animate.swim.Swim.AnimationId = "rbxassetid://507784897"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://481825862"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupR6Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://12518152696"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://12518152696"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://12520880485"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://12521158637"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://12521162526"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://12520972571"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://12520982150"
+        Animate.swim.Swim.AnimationId = "rbxassetid://12518152696"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://12518152696"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupMrToiletAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://4417979645"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://10921269718"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://10921263860"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://4417977954"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://4417978624"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://10921262864"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://10921257536"
+        Animate.swim.Swim.AnimationId = "rbxassetid://10921264784"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://10921265698"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupUdzalAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://3236836670"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://3303162967"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://10921263860"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://3303162274"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://3303162549"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://10921262864"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://10921257536"
+        Animate.swim.Swim.AnimationId = "rbxassetid://10921264784"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://10921265698"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBorockAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://3236836670"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://3303162967"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://10921263860"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://3293641938"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://3293642554"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://10921262864"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://10921257536"
+        Animate.swim.Swim.AnimationId = "rbxassetid://10921264784"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://10921265698"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupOTAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://3236836670"
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://3303162967"
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://10921263860"
+        Animate.idle.Animation1.AnimationId = "rbxassetid://10921117521"
+        Animate.idle.Animation2.AnimationId = "rbxassetid://10921118894"
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://10921262864"
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://10921257536"
+        Animate.swim.Swim.AnimationId = "rbxassetid://10921264784"
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://10921265698"
+        Animate.Disabled = false
+    end
+end
+
+local Section = Tab:NewSection("Normal Animation")
+Section:NewButton(
+    "None",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNoneAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to None!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDefaultAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Default!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRthroAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Rthro!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRealisticAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Realistic!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAdidasAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Adidas!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBoldAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Bold!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupWalmartAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to No Boundaries!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAstronautAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Astronaut!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblyAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Bubbly!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Cartoony",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupCartoonyAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Cartoony!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Elder",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupElderAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Elder!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Knight",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupKnightAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Knight!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Levitation",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupLevitationAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Levitation!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Mage",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupMageAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Mage!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Ninja",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNinjaAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Ninja!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Old School",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupOldSchoolAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Old School!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Pirate",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupPirateAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Pirate!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Robot",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRobotAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Robot!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Stylish",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupStylishAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Stylish!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Superhero",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupSuperheroAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Superhero!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Toy",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupToyAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Toy!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Vampire",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupVampireAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Vampire!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Werewolf",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupWerewolfAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Werewolf!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Zombie",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupZombieAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Zombie!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+local Section = Tab:NewSection("Unreleased/Bundles Animation")
+
+Section:NewButton(
+    "Cowboy",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupCowboyAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Cowboy!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Confident",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupConfidentAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Confident!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Drooling Zombie",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDroolingZombieAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Drooling Zombie!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Ghost",
+    "Its a Levitation animation",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupGhostAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Ghost!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Old R15",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupOldR15Animations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Old R15!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "R15",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupR15Animations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to R15!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "R6",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupR6Animations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to R6!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Patrol",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupPatrolAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Patrol!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Popstar",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupPopstarAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Popstar!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Princess",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupPrincessAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Princess!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Sneaky",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupSneakyAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Sneaky!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Stylish Female",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupStylishFemaleAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Stylish Female!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Borock",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBorockAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Borock!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Mr. Toilet",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupMrToiletAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Mr. Toilet!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Oinan Thickhoof",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupOTAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Oinan Thickhoof!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+Section:NewButton(
+    "Ud'zal",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupUdzalAnimations(plr)
+        NotificationLibrary:CreateNotification(
+            "Selenix Anim Changer",
+            "Successfully change animation to Ud'zal!",
+            3,
+            "rbxassetid://118761504842253"
+        )
+    end
+)
+
+local function SetupNBRAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://18747070484"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBWAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://18747074203"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBJAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://18747069148"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBI1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://18747067405"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBI2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://18747063918"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://18747062535"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBCAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://18747060903"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBSAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://18747073181"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupNBSIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://18747071682"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupARAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://18537384940"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAWAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://18537392113"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAJAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://18537380791"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupA1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://18537376492"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupA2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://18537371272"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://18537367238"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupACAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://18537363391"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupASAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://18537389531"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupASIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://18537387180"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBRAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://16738337225"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBWAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://16738340646"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBJAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://16738336650"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupB1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://16738333868"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupB2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://16738334710"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://16738333171"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBCAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://16738332169"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBSAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://16738339158"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBSIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://16738339817"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDRAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://913376220"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDWAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://913402848"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDJAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://507765000"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupD1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://507766388"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupD2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://507766666"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://507767968"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDCAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://507765644"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDSAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://913384386"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupDSIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://913389285"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRRAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://2510198475"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRWAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://2510202577"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRJAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://2510197830"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupR1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://2510197257"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupR2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://2510196951"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://2510195892"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRCAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://2510192778"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRSAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://2510199791"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRSIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://2510201162"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRrAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://11600211410"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRwAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://11600249883"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRjAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://11600210487"
+        Animate.Disabled = false
+    end
+end
+
+local function Setupr1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://17172918855"
+        Animate.Disabled = false
+    end
+end
+
+local function Setupr2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://17173014241"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRfAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://11600206437"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRcAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://11600205519"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRsAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://11600212676"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupRsiAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://11600213505"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsRAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://891636393"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsWAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://910025107"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsJAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://891627522"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAs1Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://891621366"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAs2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://891633237"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://891617961"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsCAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://891609353"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsSAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://891639666"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupAsSIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://891663592"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblyR(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://910025107"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblyW(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://910034870"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblyJ(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://910016857"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubbly1(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://910004836"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubbly2(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://910009958"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblyF(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://910001910"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblyS(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://910028158"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupBubblySI(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://910030921"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonyR(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://742638842"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonyW(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://742640026"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonyJ(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://742637942"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoony1(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://742637544"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoony2(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://742638445"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonyF(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://742637151"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonyS(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://742639220"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupCartoonySI(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://742639812"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderR(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://845386501"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderW(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://845403856"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderJ(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://845398858"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElder1(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://845397899"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElder2(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://845400520"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderF(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://845396048"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderS(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://845401742"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupElderSI(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://845403127"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightR(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://657564596"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightW(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://657552124"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightJ(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://658409194"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnight1(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://657595757"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnight2(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://657568135"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightF(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://657600338"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightS(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://657560551"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupKnightSI(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://657557095"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationR(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.run.RunAnim.AnimationId = "rbxassetid://616010382"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationW(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.walk.WalkAnim.AnimationId = "rbxassetid://616013216"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationJ(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.jump.JumpAnim.AnimationId = "rbxassetid://616008936"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitation1(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation1.AnimationId = "rbxassetid://616006778"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitation2Animations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.idle.Animation2.AnimationId = "rbxassetid://616008087"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationFAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.fall.FallAnim.AnimationId = "rbxassetid://616005863"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationCAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.climb.ClimbAnim.AnimationId = "rbxassetid://616003713"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationSAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swim.Swim.AnimationId = "rbxassetid://616011509"
+        Animate.Disabled = false
+    end
+end
+
+local function SetupLevitationSIAnimations(plr)
+    local Animate = plr.Character:FindFirstChild("Animate")
+    if Animate then
+        Animate.Disabled = true
+        StopAnim(plr)
+        Animate.swimidle.SwimIdle.AnimationId = "rbxassetid://616012453"
+        Animate.Disabled = false
+    end
+end
+
+local Tab = Window:NewTab("Animation Editor")
+local Section = Tab:NewSection("Run")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBRAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupARAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBRAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDRAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRRAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRrAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsRAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblyRAnimations(plr)
+    end
+)
+local Section = Tab:NewSection("Walk")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBWAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAWAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBWAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDWAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRWAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRwAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsWAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblyWAnimations(plr)
+    end
+)
+local Section = Tab:NewSection("Jump")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBJAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAJAnimations(plr)
+    end
+)
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBJAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDJAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRJAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRjAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsJAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblyJAnimations(plr)
+    end
+)
+local Section = Tab:NewSection("Idle")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBI1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupA1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupB1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupD1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupR1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        Setupr1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAs1Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubbly1Animations(plr)
+    end
+)
+local Section = Tab:NewSection("Idle 2")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBI2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupA2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupB2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupD2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupR2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        Setupr2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAs2Animations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubbly2Animations(plr)
+    end
+)
+local Section = Tab:NewSection("Fall")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBFAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAFAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBFAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDFAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRFAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRfAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsFAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblyFAnimations(plr)
+    end
+)
+local Section = Tab:NewSection("Climb")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBCAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupACAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBCAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDCAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRCAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRcAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsCAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblyCAnimations(plr)
+    end
+)
+local Section = Tab:NewSection("Swim")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBSAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupASAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBSAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDSAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRSAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRsAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsSAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblySAnimations(plr)
+    end
+)
+local Section = Tab:NewSection("Swim Idle")
+Section:NewButton(
+    "No Boundaries",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupNBSIAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Adidas",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupASIAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bold",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBSIAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Default",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupDSIAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Rthro",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRSIAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Realistic",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupRsiAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Astronaut",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupAsSIAnimations(plr)
+    end
+)
+
+Section:NewButton(
+    "Bubbly",
+    "???",
+    function()
+        local plr = game.Players.LocalPlayer
+        SetupBubblySIAnimations(plr)
+    end
+)
+
+local Tab = Window:NewTab("Fun/Troll")
+local Section = Tab:NewSection("Fun Animation")
+Section:NewLabel("This tab still work in progress")
+Section:NewButton(
+    "Sonic Animation",
+    "Fun",
+    function()
+        print("idk")
+    end
+)
+
+local Tab = Window:NewTab("Misc")
+local Section = Tab:NewSection("Animation Script")
+Section:NewButton(
+    "Gazer Fe Animation Editor (OP)",
+    "GZR",
+    function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Gazer-Ha/Animated/main/G"))()
+    end
+)
+
+local Section = Tab:NewSection("Emotes")
+Section:NewButton(
+    "Free Emotes GUI",
+    "By Gi",
+    function()
+        loadstring(game:HttpGet("https://pastebinp.com/raw/eCpipCTH"))()
+    end
+)
+
+Section:NewButton(
+    "AFEM",
+    "By ???",
+    function()
+        loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-AFEM-14048"))()
+    end
+)
+
+local Section = Tab:NewSection("Player Section")
+
+Section:NewTextBox(
+    "WalkSpeed",
+    "Walkspeed",
+    function(txt)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = (txt)
+    end
+)
+
+Section:NewTextBox(
+    "JumpPower",
+    "JumpPower",
+    function(txt)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = (txt)
+    end
+)
+
+Section:NewTextBox(
+    "Gravity",
+    "Grav",
+    function(txt)
+        game.Workspace.Gravity = (txt)
+    end
+)
+
+Section:NewTextBox(
+    "FOV",
+    "TextboxInfo",
+    function(txt)
+        game.Workspace.Camera.FieldOfView = (txt)
+    end
+)
+
+local Tab = Window:NewTab("Settings")
+local Section = Tab:NewSection("Animation Settings")
+Section:NewLabel("This tab still work in progress")
+Section:NewToggle(
+    "Disable Permanent",
+    "Turn off or on permanent animation",
+    function(state)
+        if state then
+            print("Toggle On")
+        else
+            print("Toggle Off")
+        end
+    end
+)
+local Section = Tab:NewSection("Ui Settings")
+Section:NewDropdown(
+    "Toggle Button Size",
+    "Edit size of the ToggleButton",
+    {"Large", "Medium", "Small"},
+    function(currentOption)
+        print(currentOption)
+    end
+)
+Section:NewDropdown(
+    "Notification",
+    "Hide Notification",
+    {"Hide", "Show"},
+    function(currentOption)
+        print(currentOption)
+    end
+)
+
+local UserInputService = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
+local CoreGui = game:GetService("CoreGui")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ToggleButton"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+
+local Toggle = Instance.new("ImageButton")
+Toggle.Name = "Toggle"
+Toggle.Parent = ScreenGui
+Toggle.BackgroundTransparency = 1
+Toggle.Image = "rbxassetid://118761504842253"
+Toggle.Position = UDim2.new(0, 0, 0.4, 1)
+Toggle.Size = UDim2.new(0, 60, 0, 60)
+Toggle.Draggable = false
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = Toggle
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Transparency = 0.5
+stroke.Parent = Toggle
+
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "rbxassetid://535716488"
+clickSound.Parent = Toggle
+clickSound.Volume = 2
+
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    local newPos =
+        UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    local tween =
+        TweenService:Create(
+        Toggle,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        {Position = newPos}
+    )
+    tween:Play()
+end
+
+Toggle.InputBegan:Connect(
+    function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Toggle.Position
+
+            input.Changed:Connect(
+                function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end
+            )
+        end
+    end
+)
+
+Toggle.InputChanged:Connect(
+    function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end
+)
+
+UserInputService.InputChanged:Connect(
+    function(input)
+        if dragging and input == dragInput then
+            update(input)
+        end
+    end
+)
+
+local function playClickAnimation()
+    local shrinkTween =
+        TweenService:Create(
+        Toggle,
+        TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Size = UDim2.new(0, 55, 0, 55)}
+    )
+    local growTween =
+        TweenService:Create(
+        Toggle,
+        TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Size = UDim2.new(0, 60, 0, 60)}
+    )
+    local colorTween =
+        TweenService:Create(
+        Toggle,
+        TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {ImageColor3 = Color3.fromRGB(90, 90, 90)}
+    )
+    local restoreColorTween =
+        TweenService:Create(
+        Toggle,
+        TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {ImageColor3 = Color3.fromRGB(255, 255, 255)}
+    )
+
+    shrinkTween:Play()
+    shrinkTween.Completed:Connect(
+        function()
+            growTween:Play()
+        end
+    )
+
+    colorTween:Play()
+    colorTween.Completed:Connect(
+        function()
+            restoreColorTween:Play()
+        end
+    )
+end
+
+Toggle.MouseButton1Click:Connect(
+    function()
+        playClickAnimation()
+        clickSound:Play()
+        if Library and Library.ToggleUI then
+            Library:ToggleUI()
+        else
+            warn("Library or Library:ToggleUI() is not defined.")
+        end
+    end
+)
+
+Toggle.Size = UDim2.new(0, 0, 0, 0)
+Toggle.ImageTransparency = 1
+
+local startTweenSize =
+    TweenService:Create(
+    Toggle,
+    TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    {Size = UDim2.new(0, 60, 0, 60)}
+)
+local fadeInTween =
+    TweenService:Create(
+    Toggle,
+    TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    {ImageTransparency = 0}
+)
+
+startTweenSize:Play()
+fadeInTween:Play()
+
+NotificationLibrary:CreateNotification(
+    "Selenix Anim Changer",
+    "Successfully loaded!",
+    5,
+    "rbxassetid://118761504842253"
+)
+
+return {
+    PlayAnim = PlayAnim,
+    StopAnim = StopAnim
+}
